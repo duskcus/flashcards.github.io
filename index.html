@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Card Catalog — Flashcard Practice</title>
+<style>
+  :root {
+    --color-bg: #1b1d16;
+    --color-rail: #23261c;
+    --color-card: #f2efe4;
+    --color-card-back: #e7e2d1;
+    --color-ink: #23241f;
+    --color-ink-soft: #6b6a5e;
+    --color-accent: #4c7a6b;
+    --color-accent-soft: #a9c4b8;
+    --color-wrong: #a8543a;
+    --color-line: #3a3d30;
+    --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    --font-mono: "Courier New", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--color-bg);
+    color: var(--color-card);
+    font-family: var(--font-display);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    max-width: 640px;
+    padding: 2.5rem 1.5rem 1rem;
+    text-align: left;
+  }
+
+  header h1 {
+    font-size: 1.6rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    margin: 0 0 0.25rem;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--color-accent-soft);
+    font-size: 0.9rem;
+  }
+
+  main {
+    width: 100%;
+    max-width: 640px;
+    padding: 1rem 1.5rem 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  /* --- Import panel --- */
+  #importPanel {
+    width: 100%;
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  #importPanel label {
+    font-size: 0.85rem;
+    color: var(--color-accent-soft);
+  }
+
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  input[type="file"] {
+    color: var(--color-card);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+
+  #formatHint {
+    font-size: 0.78rem;
+    color: var(--color-ink-soft);
+    line-height: 1.5;
+  }
+
+  #importStatus {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    min-height: 1.1em;
+  }
+
+  #importStatus[data-state="error"] { color: var(--color-wrong); }
+  #importStatus[data-state="ok"] { color: var(--color-accent-soft); }
+
+  /* --- Practice area --- */
+  #practiceArea {
+    width: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  #practiceArea.active { display: flex; }
+
+  #meta {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-accent-soft);
+  }
+
+  #cardStage {
+    width: 100%;
+    perspective: 1400px;
+  }
+
+  #card {
+    position: relative;
+    width: 100%;
+    min-height: 260px;
+    border-radius: 6px;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform 0.45s cubic-bezier(0.4, 0.2, 0.2, 1);
+  }
+
+  #card.flipped { transform: rotateY(180deg); }
+
+  .face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: 6px;
+    background: var(--color-card);
+    box-shadow: 0 1px 0 var(--color-line), 0 8px 18px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .face .index-no {
+    position: absolute;
+    top: 0.9rem;
+    left: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--color-ink-soft);
+  }
+
+  .face .label {
+    position: absolute;
+    top: 0.9rem;
+    right: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-soft);
+  }
+
+  .face .content {
+    color: var(--color-ink);
+    font-size: 1.35rem;
+    line-height: 1.5;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  .face.back {
+    background: var(--color-card-back);
+    transform: rotateY(180deg);
+  }
+
+  #hint {
+    color: var(--color-ink-soft);
+    font-size: 0.78rem;
+    margin-top: -0.5rem;
+  }
+
+  /* --- Controls --- */
+  #controls {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  button {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    background: transparent;
+    color: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  button:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent-soft);
+  }
+
+  button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  button.primary {
+    border-color: var(--color-accent);
+    color: var(--color-accent-soft);
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--color-accent-soft);
+    outline-offset: 2px;
+  }
+
+  #progressTrack {
+    width: 100%;
+    height: 3px;
+    background: var(--color-line);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  #progressFill {
+    height: 100%;
+    background: var(--color-accent);
+    width: 0%;
+    transition: width 0.25s ease;
+  }
+
+  #emptyState {
+    color: var(--color-ink-soft);
+    font-size: 0.85rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #card { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Card Catalog</h1>
+  <p>Import a set, work the deck, close the drawer.</p>
+</header>
+
+<main>
+
+  <section id="importPanel">
+    <label for="fileInput">Import flashcard file (.json, .csv, or .txt)</label>
+    <div class="file-row">
+      <input type="file" id="fileInput" accept=".json,.csv,.txt" />
+    </div>
+    <p id="importStatus"></p>
+  </section>
+
+  <section id="practiceArea">
+    <div id="meta">
+      <span id="deckName"></span>
+      <span id="cardCounter"></span>
+    </div>
+
+    <div id="progressTrack"><div id="progressFill"></div></div>
+
+    <div id="cardStage">
+      <div id="card" role="button" tabindex="0" aria-label="Flashcard, press Enter or click to flip">
+        <div class="face front">
+          <span class="index-no" id="indexNoFront"></span>
+          <span class="label">FRONT</span>
+          <div class="content" id="frontContent"></div>
+        </div>
+        <div class="face back">
+          <span class="index-no" id="indexNoBack"></span>
+          <span class="label">BACK</span>
+          <div class="content" id="backContent"></div>
+        </div>
+      </div>
+    </div>
+
+    <p id="hint">Click the card or press Space to flip</p>
+
+    <div id="controls">
+      <button id="prevBtn" type="button">&larr; Prev</button>
+      <button id="flipBtn" type="button" class="primary">Flip</button>
+      <button id="shuffleBtn" type="button">Shuffle</button>
+      <button id="nextBtn" type="button">Next &rarr;</button>
+    </div>
+  </section>
+
+  <section>
+    <label>.txt file example:</label><br>
+    <code>
+      H20|Water<br>
+      CO2|Carbon dioxide
+    </code><br>
+    <br>
+    <label>.csv file example:</label><br>
+    <code>
+      H20,Water<br>
+      CO2,Carbon dioxide<br>
+    </code>
+    <br>
+    <label>.json file example:</label><br>
+    <code>
+      [<br>
+      &nbsp;&nbsp;{ "front": "H2O", "back": "Water" },<br>
+      &nbsp;&nbsp;{ "front": "CO2", "back": "Carbon dioxide" }<br>
+      ]
+    </code>
+    <br>
+  </section>
+
+</main>
+
+<script>
+"use strict";
+
+/**
+ * Card Catalog — a small, self-contained flashcard practice tool.
+ * No build step, no dependencies. All state lives in `deckState`.
+ */
+
+// ---- Constants -------------------------------------------------------
+
+const SUPPORTED_EXTENSIONS = Object.freeze(["json", "csv", "txt"]);
+const CSV_DELIMITERS = Object.freeze([",", "|", "\t"]);
+const KEY_FLIP = " ";
+const KEY_NEXT = "ArrowRight";
+const KEY_PREV = "ArrowLeft";
+
+const JSON_FRONT_KEYS = Object.freeze(["front", "question", "term", "q"]);
+const JSON_BACK_KEYS = Object.freeze(["back", "answer", "definition", "a"]);
+
+// ---- DOM references ----------------------------------------------------
+
+const dom = {
+  fileInput: document.getElementById("fileInput"),
+  importStatus: document.getElementById("importStatus"),
+  practiceArea: document.getElementById("practiceArea"),
+  deckName: document.getElementById("deckName"),
+  cardCounter: document.getElementById("cardCounter"),
+  progressFill: document.getElementById("progressFill"),
+  card: document.getElementById("card"),
+  frontContent: document.getElementById("frontContent"),
+  backContent: document.getElementById("backContent"),
+  indexNoFront: document.getElementById("indexNoFront"),
+  indexNoBack: document.getElementById("indexNoBack"),
+  prevBtn: document.getElementById("prevBtn"),
+  nextBtn: document.getElementById("nextBtn"),
+  flipBtn: document.getElementById("flipBtn"),
+  shuffleBtn: document.getElementById("shuffleBtn")
+};
+
+// ---- State ---------------------------------------------------------------
+
+/** @typedef {{ front: string, back: string }} Flashcard */
+
+const deckState = {
+  /** @type {Flashcard[]} */
+  cards: [],
+  name: "",
+  currentIndex: 0,
+  isFlipped: false
+};
+
+// ---- Parsing ---------------------------------------------------------
+
+/**
+ * Parses raw file text into an array of flashcards based on file extension.
+ * @param {string} rawText
+ * @param {string} extension - one of SUPPORTED_EXTENSIONS
+ * @returns {Flashcard[]}
+ */
+function parseFileContent(rawText, extension) {
+  if (extension === "json") {
+    return parseJsonDeck(rawText);
+  }
+  return parseDelimitedDeck(rawText);
+}
+
+/**
+ * @param {string} rawText
+ * @returns {Flashcard[]}
+ */
+function parseJsonDeck(rawText) {
+  const data = JSON.parse(rawText);
+  const entries = Array.isArray(data) ? data : data.cards;
+
+  if (!Array.isArray(entries)) {
+    throw new Error("JSON must be an array of cards, or an object with a \"cards\" array.");
+  }
+
+  return entries.map((entry, i) => normalizeJsonEntry(entry, i)).filter(Boolean);
+}
+
+/**
+ * Normalizes a single JSON entry (object or [front, back] pair) into a Flashcard.
+ * @param {unknown} entry
+ * @param {number} index
+ * @returns {Flashcard | null}
+ */
+function normalizeJsonEntry(entry, index) {
+  if (Array.isArray(entry) && entry.length >= 2) {
+    return { front: String(entry[0]).trim(), back: String(entry[1]).trim() };
+  }
+
+  if (entry && typeof entry === "object") {
+    const front = findFirstKey(entry, JSON_FRONT_KEYS);
+    const back = findFirstKey(entry, JSON_BACK_KEYS);
+    if (front === null || back === null) return null;
+    return { front: String(front).trim(), back: String(back).trim() };
+  }
+
+  console.warn(`Skipping unrecognized card at index ${index}.`);
+  return null;
+}
+
+/**
+ * @param {Record<string, unknown>} obj
+ * @param {readonly string[]} keys
+ * @returns {unknown}
+ */
+function findFirstKey(obj, keys) {
+  for (const key of keys) {
+    if (key in obj) return obj[key];
+  }
+  return null;
+}
+
+/**
+ * Parses CSV/TXT content: one card per non-empty line, split by the first
+ * delimiter (comma, pipe, or tab) found in the file.
+ * @param {string} rawText
+ * @returns {Flashcard[]}
+ */
+function parseDelimitedDeck(rawText) {
+  const lines = rawText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length === 0) {
+    throw new Error("File is empty.");
+  }
+
+  const delimiter = detectDelimiter(lines[0]);
+  return lines.map((line, i) => parseDelimitedLine(line, delimiter, i)).filter(Boolean);
+}
+
+/**
+ * @param {string} sampleLine
+ * @returns {string}
+ */
+function detectDelimiter(sampleLine) {
+  const found = CSV_DELIMITERS.find((d) => sampleLine.includes(d));
+  if (!found) {
+    throw new Error("Couldn't detect a delimiter. Use a comma, pipe, or tab between front and back.");
+  }
+  return found;
+}
+
+/**
+ * @param {string} line
+ * @param {string} delimiter
+ * @param {number} lineIndex
+ * @returns {Flashcard | null}
+ */
+function parseDelimitedLine(line, delimiter, lineIndex) {
+  const splitIndex = line.indexOf(delimiter);
+  if (splitIndex === -1) {
+    console.warn(`Skipping line ${lineIndex + 1}: no delimiter found.`);
+    return null;
+  }
+
+  const front = line.slice(0, splitIndex).trim();
+  const back = line.slice(splitIndex + delimiter.length).trim();
+  if (!front || !back) return null;
+
+  return { front, back };
+}
+
+// ---- File loading -------------------------------------------------------
+
+/**
+ * @param {File} file
+ * @returns {Promise<string>}
+ */
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read the file."));
+    reader.readAsText(file);
+  });
+}
+
+/**
+ * @param {string} filename
+ * @returns {string}
+ */
+function getExtension(filename) {
+  const parts = filename.split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "";
+}
+
+async function handleFileSelected() {
+  const file = dom.fileInput.files[0];
+  if (!file) return;
+
+  const extension = getExtension(file.name);
+  if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+    showImportStatus(`Unsupported file type ".${extension}". Use .json, .csv, or .txt.`, "error");
+    return;
+  }
+
+  try {
+    const rawText = await readFileAsText(file);
+    const cards = parseFileContent(rawText, extension);
+
+    if (cards.length === 0) {
+      throw new Error("No valid cards found in this file.");
+    }
+
+    loadDeck(cards, file.name);
+    showImportStatus(`Loaded ${cards.length} card${cards.length === 1 ? "" : "s"} from ${file.name}.`, "ok");
+  } catch (error) {
+    showImportStatus(`Import failed: ${error.message}`, "error");
+  }
+}
+
+/**
+ * @param {string} message
+ * @param {"ok" | "error"} state
+ */
+function showImportStatus(message, state) {
+  dom.importStatus.textContent = message;
+  dom.importStatus.dataset.state = state;
+}
+
+// ---- Deck / practice logic --------------------------------------------
+
+/**
+ * @param {Flashcard[]} cards
+ * @param {string} name
+ */
+function loadDeck(cards, name) {
+  deckState.cards = cards;
+  deckState.name = name;
+  deckState.currentIndex = 0;
+  deckState.isFlipped = false;
+
+  dom.practiceArea.classList.add("active");
+  dom.deckName.textContent = name;
+
+  renderCurrentCard();
+}
+
+function renderCurrentCard() {
+  const card = deckState.cards[deckState.currentIndex];
+  if (!card) return;
+
+  const position = deckState.currentIndex + 1;
+  const total = deckState.cards.length;
+
+  dom.frontContent.textContent = card.front;
+  dom.backContent.textContent = card.back;
+  dom.indexNoFront.textContent = `No. ${position}`;
+  dom.indexNoBack.textContent = `No. ${position}`;
+  dom.cardCounter.textContent = `${position} / ${total}`;
+  dom.progressFill.style.width = `${(position / total) * 100}%`;
+
+  dom.card.classList.toggle("flipped", deckState.isFlipped);
+  dom.prevBtn.disabled = deckState.currentIndex === 0;
+  dom.nextBtn.disabled = deckState.currentIndex === total - 1;
+}
+
+function flipCard() {
+  deckState.isFlipped = !deckState.isFlipped;
+  dom.card.classList.toggle("flipped", deckState.isFlipped);
+}
+
+function goToNextCard() {
+  if (deckState.currentIndex >= deckState.cards.length - 1) return;
+  deckState.currentIndex += 1;
+  deckState.isFlipped = false;
+  renderCurrentCard();
+}
+
+function goToPreviousCard() {
+  if (deckState.currentIndex <= 0) return;
+  deckState.currentIndex -= 1;
+  deckState.isFlipped = false;
+  renderCurrentCard();
+}
+
+/** Fisher–Yates shuffle, applied in place to deckState.cards. */
+function shuffleDeck() {
+  const cards = deckState.cards;
+  for (let i = cards.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  deckState.currentIndex = 0;
+  deckState.isFlipped = false;
+  renderCurrentCard();
+}
+
+// ---- Keyboard handling -----------------------------------------------
+
+/**
+ * @param {KeyboardEvent} event
+ */
+function handleKeydown(event) {
+  if (deckState.cards.length === 0) return;
+
+  const isCardFocused = document.activeElement === dom.card;
+  const isTypingTarget = ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
+  if (isTypingTarget) return;
+
+  if (event.key === KEY_FLIP && isCardFocused) {
+    event.preventDefault();
+    flipCard();
+  } else if (event.key === KEY_NEXT) {
+    goToNextCard();
+  } else if (event.key === KEY_PREV) {
+    goToPreviousCard();
+  }
+}
+
+// ---- Wiring --------------------------------------------------------------
+
+function initialize() {
+  dom.fileInput.addEventListener("change", handleFileSelected);
+  dom.card.addEventListener("click", flipCard);
+  dom.flipBtn.addEventListener("click", flipCard);
+  dom.nextBtn.addEventListener("click", goToNextCard);
+  dom.prevBtn.addEventListener("click", goToPreviousCard);
+  dom.shuffleBtn.addEventListener("click", shuffleDeck);
+  document.addEventListener("keydown", handleKeydown);
+}
+
+initialize();
+</script>
+
+</body>
+</html>
